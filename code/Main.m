@@ -33,13 +33,13 @@ runtimes = 20;      % Number of experimental runs
 
 data_list = {"Colon"};
 
-for p = 1:length(data_list)  % 遍历所有数据集
+for p = 1:length(data_list)  % Iterate through all datasets
     data_name = data_list{p};
     dataname = fullfile("dataset", data_name + ".mat");  
     loaded_data = load(dataname);
     fprintf(">>>>>>>>>>load NO.%d data: <%s> \n", p, data_name);
     
-    % 根据变量名选择合适的数据赋值方式
+    % Select the appropriate data assignment method based on the variable name
     if isfield(loaded_data, 'data')
         X = loaded_data.data(:, 2:end);
         Y = loaded_data.data(:, 1);
@@ -49,7 +49,7 @@ for p = 1:length(data_list)  % 遍历所有数据集
     else
         error('Unexpected data format in %s', dataname);
     end
-    % 将 -1,1 映射为 0,1
+    % Map -1,1 to 0,1
     Y(Y==-1) = 0;
     feat = X;
     label = Y;
@@ -60,35 +60,35 @@ for p = 1:length(data_list)  % 遍历所有数据集
         % Divide data into training and validation sets
         HO = cvpartition(label, 'HoldOut', ho); 
         opts.Model = HO;
-% ----------------利用Lasso范数计算选择概率-------------------
-        % 计算标准差
+% ----------------Calculate selection probability using Lasso norm-------------------
+        % Calculate standard deviation
         X_std = std(X);
-        % 判断是否存在标准差为0的列
+        % Check if there are columns with zero standard deviation
         if all(X_std ~= 0)
-            % 没有标准差为0的列，正常标准化
+            % No columns with zero standard deviation, perform normal normalization
             X_mean = mean(X);
-            % 数据标准化
+            % Data normalization
             X_standardized = (X - X_mean) ./ X_std;
         else 
             X_standardized = X;
         end
 
-        [B, FitInfo] = lasso(X_standardized, Y, 'CV', 10); % 10 折交叉验证
-        bestLambda = FitInfo.LambdaMinMSE; % 选取使 MSE 最小的 Lambda
-        bestB = B(:, FitInfo.IndexMinMSE); % 选取对应的回归系数
-        % 通过Lasso计算权重参数
+        [B, FitInfo] = lasso(X_standardized, Y, 'CV', 10); % 10-fold cross-validation
+        bestLambda = FitInfo.LambdaMinMSE; % Select Lambda that minimizes MSE
+        bestB = B(:, FitInfo.IndexMinMSE); % Select corresponding regression coefficients
+        % Calculate weight parameters via Lasso
         [B, FitInfo] = lasso(X_standardized, Y, 'Lambda', bestLambda); 
-        % 计算Lasso method 的准确率和特征数量
-        numFeatures = size(feat, 2); % 特征数量
+        % Calculate accuracy and feature count for Lasso method
+        numFeatures = size(feat, 2); % Number of features
         Pos   = 1:numFeatures;
         Lasso_Matrix = double(B ~= 0);
-        opts.Lasso = Lasso_Matrix';  % 转置操作
+        opts.Lasso = Lasso_Matrix';  % Transpose operation
 
 % %---------------- Perform feature selection by different filter method ----------------
         FS_Filter = jffs('rf', feat, label, opts);
         FS_weight = FS_Filter.s;
+		% Normalize to ensure no NaN or Inf values appear
         opts.weight = normalize(FS_weight, 'range');
-        % 归一化保证不能出现NaN和Inf
         opts.weight(isnan(opts.weight)) = 1;
         opts.weight(isinf(opts.weight)) = 0;
 
