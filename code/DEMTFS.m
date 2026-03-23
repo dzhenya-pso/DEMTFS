@@ -2,17 +2,17 @@
 
 % == == == == == == == == Input == == == == == == == == %
 % NC  : 特征数量是否变化                                %
-% AC  : 准确率是否变化                                  %
+% AC  : 准确率是否变�?                                 %
 % feat  : 特征                                          %
 % label : 标签(类别)                                    %
-% X     : 连续编码方式，>0.5即选择特征为1，反之不选此特征 %
+% X     : 连续编码方式�?0.5即�?择特征为1，反之不选此特征 %
 % opts  : 进化算法的参数结构体                           %
 % == == == == == == == == == == == == == == == == == == %
 
 % == == == == == == == == Output == == == == == == == == %
 % task  : 处理后的任务                                   %
 % == == == == == == == == == == == == == == == == == == %
-function PSO = PDEMTFS(feat,label,opts)
+function PSO = DEMTFS(feat,label,opts)
 % Parameters
 if isfield(opts,'N'), N = opts.N; end
 if isfield(opts,'T'), max_Iter = opts.T; end
@@ -25,37 +25,37 @@ if isfield(opts,'weight'), Filter_weight = opts.weight; end
 X = feat;
 Y = label;
 
-T = 4   ; % 生成T个相关任务
-tasks = cell(1, T); % 初始化任务存储变量
-X_task = cell(1, T); % 初始化迁移任务存储变量
+T = 4   ; % 生成T个相关任�?
+tasks = cell(1, T); % 初始化任务存储变�?
+X_task = cell(1, T); % 初始化迁移任务存储变�?
 
 
 % ----------------利用Lasso范数计算选择概率-------------------
-% 使用原始权重（未排序）与阈值比较来划分Promising和Remaining Sets
+% 使用原始权重（未排序）与阈�?比较来划分Promising和Remaining Sets
 promising_idx = find(Lasso_weight >= 1);
 remaining_idx = find(Lasso_weight < 1);
-% 计算 Lasso_weight > 0 的特征数量
+% 计算 Lasso_weight > 0 的特征数�?
 num_promising = sum(Lasso_weight < 1);
 % 计算总特征数
 num_features = length(Lasso_weight);
 % 计算 p_promising
 p_promising = num_promising / num_features;
-% 确保 p_promising 在 [0,1] 范围内
+% 确保 p_promising �?[0,1] 范围�?
  p_promising = max(0, min(1, p_promising));
 % 计算 p_remaining
 p_remaining = 1 - p_promising;
 
 % ---------------task run--------------------
 for t = 1:T
-    % 对于每个任务，根据概率选择特征
+    % 对于每个任务，根据概率�?择特�?
     selected_promising = randsample(promising_idx, round(p_promising * num_features), true);
     selected_remaining = randsample(remaining_idx, round(p_remaining * num_features), true);
-    % 合并选择的特征并存储为一个任务
+    % 合并选择的特征并存储为一个任�?
     tasks{t} = union(selected_promising, selected_remaining);
 end
 
 %---------------------Algorithm operation---------------------
-alpha = 0.9; % 适应度函数中的权重
+alpha = 0.9; % 适应度函数中的权�?
 numFeatures = size(feat, 2); % 特征数量
 numParticles = N; % 粒子数量
 
@@ -122,11 +122,11 @@ Num_NP(1) = 0;
 for iter = 1:max_Iter
     % start time
     tic
-    parfor t = T % 并行循环
+    parfor t = 1: T % 并行循环parfor T 个任务
         % 从tasks中获取当前任务的特征子集
         featureSubset = tasks{t};
         for i = 1:numParticles
-            %保存该粒子位置
+            %保存该粒子位�?
             currentPosition=particles{t}(i).position;
             % 更新粒子速度
             r1 = rand();
@@ -134,31 +134,31 @@ for iter = 1:max_Iter
             particles{t}(i).velocity = w(iter) * particles{t}(i).velocity + ...
                                        c1(iter) * r1 .* (particles{t}(i).pbest - particles{t}(i).position) + ...
                                        c2(iter) * r2 .* (globalBests{t}.position - particles{t}(i).position);
-             % 预更新粒子位置
+             % 预更新粒子位�?
             newPosition = currentPosition + particles{t}(i).velocity;
 
 
-            % 适用于特征选择的二值化处理，确保只选择当前任务相关的特征
+            % 适用于特征�?择的二�?化处理，确保只�?择当前任务相关的特征
             selectedFeatures = false(1, numFeatures); % Initialize with false 
             selectedFeatures(featureSubset) = particles{t}(i).position(featureSubset) > 0.6;
-            % 检查是否有特征被选中
+            % �?��是否有特征被选中
             if sum(selectedFeatures) == 0
-                % 如果没有特征被选中，保持粒子在原位置，不更新粒子状态，直接跳过该粒子的后续处理
-%                 fprintf('任务 %d, 粒子 %d: 没有特征被选中，保持当前状态不变。\n', t, i);
+                % 如果没有特征被�?中，保持粒子在原位置，不更新粒子状�?，直接跳过该粒子的后续处�?
+%                 fprintf('任务 %d, 粒子 %d: 没有特征被�?中，保持当前状�?不变。\n', t, i);
                 continue;  % 跳过该粒子的后续处理
             end
-            % 有特征被选中，更新粒子位置
+            % 有特征被选中，更新粒子位�?
             particles{t}(i).position = newPosition;
             particles{t}(i).fitness = calculateFitness(selectedFeatures, X, Y, alpha);
             
             Acc_NP(t,i) = particles{t}(i).fitness;
             Num_NP(t,i) = sum(particles{t}(i).position>0.6);
-            % 更新任务个体最佳
+            % 更新任务个体�?��
             if isempty(particles{t}(i).pbest) || particles{t}(i).fitness < particles{t}(i).pbestFitness
                 particles{t}(i).pbest = particles{t}(i).position;
                 particles{t}(i).pbestFitness = particles{t}(i).fitness;
             end
-            % 更新任务全局最优解
+            % 更新任务全局�?���?
             if isempty(globalBests{t}) || particles{t}(i).fitness < globalBests{t}.fitness
                 globalBests{t}.position = particles{t}(i).position;
                 globalBests{t}.fitness = particles{t}(i).fitness;
@@ -224,26 +224,26 @@ for iter = 1:max_Iter
     end
     elapsedTime = toc;
     Time_curve(iter) = elapsedTime;
-    % 获取每一代的适应值
+    % 获取每一代的适应�?
     for t = 1: T
         % 提取对应任务的最佳特征子集的索引
         selectedFeatures = globalBests{t}.position>0.6;
-        % 计算选取的特征个数
+        % 计算选取的特征个�?
         numSelectedFeatures = sum(selectedFeatures);
-        % 检查是否有特征被选中
+        % �?��是否有特征被选中
         if sum(selectedFeatures) == 0
-            % 如果没有特征被选中，保持任务中的原位置，不更新任务状态，直接跳过该任务的后续处理
-        %                 fprintf('任务 %d: 没有特征被选中，保持当前状态不变。\n', t);
+            % 如果没有特征被�?中，保持任务中的原位置，不更新任务状态，直接跳过该任务的后续处理
+        %                 fprintf('任务 %d: 没有特征被�?中，保持当前状�?不变。\n', t);
             continue;  % 跳过该任务的后续处理
         end
-        % 该特征子集的分类正确率
+        % 该特征子集的分类正确�?
         accuracy = evaluateFeatureSubset(selectedFeatures, feat, label, 5);
         if accuracy > maxAccuracy
             maxAccuracy = accuracy;
             maxAccuracyFeaturesCount = numSelectedFeatures;
         end
     end
-    % 储存每次迭代的收敛值
+    % 储存每次迭代的收敛�?
     curve(iter) = 1-maxAccuracy;
     FeaturesCount(iter) = maxAccuracyFeaturesCount;
         
