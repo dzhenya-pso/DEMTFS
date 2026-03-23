@@ -1,16 +1,16 @@
 % Task creation through FFT  (2/22/2025)
 
 % == == == == == == == == Input == == == == == == == == %
-% NC  : 特征数量是否变化                                %
-% AC  : 准确率是否变�?                                 %
-% feat  : 特征                                          %
-% label : 标签(类别)                                    %
-% X     : 连续编码方式�?0.5即�?择特征为1，反之不选此特征 %
-% opts  : 进化算法的参数结构体                           %
+% NC  : Whether the number of features changes          %
+% AC  : Whether accuracy changes                        %
+% feat  : Features                                      %
+% label : Labels (categories)                           %
+% X     : Decision vector								%
+% opts  : Parameter structure for evolutionary algorithm%
 % == == == == == == == == == == == == == == == == == == %
 
-% == == == == == == == == Output == == == == == == == == %
-% task  : 处理后的任务                                   %
+% == == == == == == == == Output == == == == == == == ==%
+% task  : Processed task                                %
 % == == == == == == == == == == == == == == == == == == %
 function PSO = DEMTFS(feat,label,opts)
 % Parameters
@@ -25,39 +25,37 @@ if isfield(opts,'weight'), Filter_weight = opts.weight; end
 X = feat;
 Y = label;
 
-T = 4   ; % 生成T个相关任�?
-tasks = cell(1, T); % 初始化任务存储变�?
-X_task = cell(1, T); % 初始化迁移任务存储变�?
+T = 4   ; % Generate T related tasks
+tasks = cell(1, T); % Initialize task storage variable
+X_task = cell(1, T); % Initialize transfer task storage variable
 
 
-% ----------------利用Lasso范数计算选择概率-------------------
-% 使用原始权重（未排序）与阈�?比较来划分Promising和Remaining Sets
+% ----------------Calculate selection probability using Lasso norm-------------------
+% Use original weights (unsorted) compared with threshold to divide Promising and Remaining Sets
 promising_idx = find(Lasso_weight >= 1);
 remaining_idx = find(Lasso_weight < 1);
-% 计算 Lasso_weight > 0 的特征数�?
+% Count the number of features with Lasso_weight > 0
 num_promising = sum(Lasso_weight < 1);
-% 计算总特征数
+% Calculate the total number of features
 num_features = length(Lasso_weight);
-% 计算 p_promising
+% Calculate p_promising
 p_promising = num_promising / num_features;
-% 确保 p_promising �?[0,1] 范围�?
+% Ensure p_promising is within the range [0,1]
  p_promising = max(0, min(1, p_promising));
-% 计算 p_remaining
+% Calculate p_remaining
 p_remaining = 1 - p_promising;
 
-% ---------------task run--------------------
+% ---------------% task run--------------------
 for t = 1:T
-    % 对于每个任务，根据概率�?择特�?
     selected_promising = randsample(promising_idx, round(p_promising * num_features), true);
     selected_remaining = randsample(remaining_idx, round(p_remaining * num_features), true);
-    % 合并选择的特征并存储为一个任�?
     tasks{t} = union(selected_promising, selected_remaining);
 end
 
 %---------------------Algorithm operation---------------------
-alpha = 0.9; % 适应度函数中的权�?
-numFeatures = size(feat, 2); % 特征数量
-numParticles = N; % 粒子数量
+alpha = 0.9; 
+numFeatures = size(feat, 2); % Number of features
+numParticles = N; % Population size
 
 me = max_Iter;
 c1=2.5-(1:me).*(2.0./me);
@@ -73,7 +71,7 @@ for t = 1:T
     numFeaturesInTask = length(featureSubset); 
     % Initialize particles for task t
     for i = 1:numParticles
-        % 初始化二进制
+	
         particlePosition = false(1, numFeatures); 
         particlePosition(featureSubset) = rand(1, numFeaturesInTask) > 0.6;
 
@@ -122,43 +120,41 @@ Num_NP(1) = 0;
 for iter = 1:max_Iter
     % start time
     tic
-    parfor t = 1: T % 并行循环parfor T 个任务
-        % 从tasks中获取当前任务的特征子集
+    parfor t = 1: T % Parallel loop parfor for T tasks
+        % Get the feature subset of the current task from tasks
         featureSubset = tasks{t};
         for i = 1:numParticles
-            %保存该粒子位�?
+		
             currentPosition=particles{t}(i).position;
-            % 更新粒子速度
+            % Update population
             r1 = rand();
             r2 = rand();
             particles{t}(i).velocity = w(iter) * particles{t}(i).velocity + ...
                                        c1(iter) * r1 .* (particles{t}(i).pbest - particles{t}(i).position) + ...
                                        c2(iter) * r2 .* (globalBests{t}.position - particles{t}(i).position);
-             % 预更新粒子位�?
+            
             newPosition = currentPosition + particles{t}(i).velocity;
 
 
-            % 适用于特征�?择的二�?化处理，确保只�?择当前任务相关的特征
+            % Binarization for feature selection, ensuring only current task-related features are selected
             selectedFeatures = false(1, numFeatures); % Initialize with false 
             selectedFeatures(featureSubset) = particles{t}(i).position(featureSubset) > 0.6;
-            % �?��是否有特征被选中
+            % Check if any features are selected
             if sum(selectedFeatures) == 0
-                % 如果没有特征被�?中，保持粒子在原位置，不更新粒子状�?，直接跳过该粒子的后续处�?
-%                 fprintf('任务 %d, 粒子 %d: 没有特征被�?中，保持当前状�?不变。\n', t, i);
-                continue;  % 跳过该粒子的后续处理
+                continue;  % Skip subsequent processing of this particle
             end
-            % 有特征被选中，更新粒子位�?
+            % Features are selected, update particle
             particles{t}(i).position = newPosition;
             particles{t}(i).fitness = calculateFitness(selectedFeatures, X, Y, alpha);
             
             Acc_NP(t,i) = particles{t}(i).fitness;
             Num_NP(t,i) = sum(particles{t}(i).position>0.6);
-            % 更新任务个体�?��
+            % Update the individuals for the task
             if isempty(particles{t}(i).pbest) || particles{t}(i).fitness < particles{t}(i).pbestFitness
                 particles{t}(i).pbest = particles{t}(i).position;
                 particles{t}(i).pbestFitness = particles{t}(i).fitness;
             end
-            % 更新任务全局�?���?
+            % Update the global for the task
             if isempty(globalBests{t}) || particles{t}(i).fitness < globalBests{t}.fitness
                 globalBests{t}.position = particles{t}(i).position;
                 globalBests{t}.fitness = particles{t}(i).fitness;
@@ -184,7 +180,7 @@ for iter = 1:max_Iter
             AC_increase = AC_increase + 1;
         end
         
-        % 通过FFT更新每个任务，建立任务之间的联系
+        % Update each task via FFT and establish connections between tasks
         X_task{1} = globalBests{1}.position;
         X_task{2} = globalBests{2}.position;
         X_task{3} = globalBests{3}.position;
@@ -198,7 +194,7 @@ for iter = 1:max_Iter
 
         % Task migration and knowledge transfer strategy
         if NC_decrease>2 || NC_increase>2 || AC_decrease>2 || AC_increase>2
-            % ---------任务知识迁移：根据特征数量和准确率的变化调整任务---------
+            % ---------% Task knowledge transfer: Adjust tasks based on changes in feature number and accuracy---------
             if NC_decrease>2
                 NC_M = 0;
                 NC_decrease = 0;
@@ -224,26 +220,24 @@ for iter = 1:max_Iter
     end
     elapsedTime = toc;
     Time_curve(iter) = elapsedTime;
-    % 获取每一代的适应�?
+    % Obtain the fitness value for each generation
     for t = 1: T
-        % 提取对应任务的最佳特征子集的索引
+        % Extract the index of the optimal feature subset for the corresponding task
         selectedFeatures = globalBests{t}.position>0.6;
-        % 计算选取的特征个�?
+        % Calculate the number of selected features
         numSelectedFeatures = sum(selectedFeatures);
-        % �?��是否有特征被选中
-        if sum(selectedFeatures) == 0
-            % 如果没有特征被�?中，保持任务中的原位置，不更新任务状态，直接跳过该任务的后续处理
-        %                 fprintf('任务 %d: 没有特征被�?中，保持当前状�?不变。\n', t);
-            continue;  % 跳过该任务的后续处理
-        end
-        % 该特征子集的分类正确�?
+        % Check if any features are selected
+		if sum(selectedFeatures) == 0
+			continue;  % Skip subsequent processing of this particle
+		end
+        % Calculate classification accuracy
         accuracy = evaluateFeatureSubset(selectedFeatures, feat, label, 5);
         if accuracy > maxAccuracy
             maxAccuracy = accuracy;
             maxAccuracyFeaturesCount = numSelectedFeatures;
         end
     end
-    % 储存每次迭代的收敛�?
+    % Store the convergence value for each iteration
     curve(iter) = 1-maxAccuracy;
     FeaturesCount(iter) = maxAccuracyFeaturesCount;
         
@@ -262,7 +256,7 @@ end
 %---------------------Dynamic multitasking strategy-----------------
 function DMT = DMT(NC,AC,X_task,feat,label,opts)
     Filter_weight = opts.weight;
-    % 初始定义
+    % Pre
     sFeat1 = X_task{1};
     sFeat2 = X_task{2};
     sFeat3 = X_task{3};
